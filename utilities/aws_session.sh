@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # Вказуємо ARN пристрою MFA
+MFA_SERIAL_NUMBER="arn:aws:iam::0123456789:mfa/user"
 
 # Видаляємо рядки зі змінними, якщо вони існують
 remove_old_entries() {

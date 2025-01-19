@@ -7,18 +7,8 @@ provider "aws" {
   }
 }
 
-module "security_group" {
-  source       = "./modules/security_group"
-  vpc_id       = module.vpc.vpc_id
-  ssh_cidr_blocks  = var.ssh_cidr_blocks # Для демонстрації залишаємо відкритий доступ
-  http_cidr_blocks = var.http_cidr_blocks
-  project_name = var.project_name
-  tags         = var.tags
-}
-
 module "vpc" {
   source       = "./modules/vpc"
-  region       = var.region
   project_name = var.project_name
   tags         = var.tags
 }
@@ -27,44 +17,56 @@ module "ec2" {
   source           = "./modules/ec2"
   vpc_id           = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
+  private_subnet_cidr_blocks = module.vpc.private_subnet_cidr_blocks
   instance_type    = var.instance_type
   ami_id           = var.ami_id
   key_name         = var.key_name
-  vpc_security_group_ids = [module.security_group.ec2_sg_id]
   project_name     = var.project_name
   tags             = var.tags
 }
 
-# Вихідні дані Security Group
-output "security_group_id" {
-  description = "ID of the EC2 Security Group"
-  value       = module.security_group.ec2_sg_id
+module "rds_mysql" {
+  source              = "./modules/rds_mysql"
+  vpc_id              = module.vpc.vpc_id
+  private_subnet_ids  = module.vpc.private_subnet_ids
+  ec2_security_group_id = module.ec2.ec2_sg_id
+  db_name             = var.db_name
+  db_user             = var.db_user
+  db_password         = var.db_password
+  db_instance_class   = var.db_instance_class
+  tags                = var.tags
+  project_name        = var.project_name
 }
 
 # Вихідні дані для VPC
-output "vpc_id" {
-  description = "ID of the VPC"
-  value       = module.vpc.vpc_id
+output "vpc_info" {
+  description = "Details about the created VPC"
+  value = {
+    vpc_id                   = module.vpc.vpc_id
+    public_subnet_ids        = module.vpc.public_subnet_ids
+    private_subnet_ids       = module.vpc.private_subnet_ids
+    private_subnet_cidr_blocks = module.vpc.private_subnet_cidr_blocks
+  }
 }
 
-output "public_subnet_ids" {
-  description = "IDs of public subnets"
-  value       = module.vpc.public_subnet_ids
+# Вихідні дані для EC2
+output "ec2_info" {
+  description = "Details about the EC2 instance"
+  value = {
+    public_ip           = module.ec2.ec2_public_ip
+    private_ip          = module.ec2.ec2_private_ip
+    security_group_id   = module.ec2.ec2_sg_id
+  }
 }
 
-output "private_subnet_ids" {
-  description = "IDs of private subnets"
-  value       = module.vpc.private_subnet_ids
+# Вихідні дані для RDS
+output "rds_info" {
+  description = "Details about the RDS instance"
+  value = {
+    endpoint            = module.rds_mysql.rds_endpoint
+    port                = module.rds_mysql.rds_port
+    security_group_id   = module.rds_mysql.rds_sg_id
+    instance_id         = module.rds_mysql.rds_instance_id
+    tags                = module.rds_mysql.rds_tags
+  }
 }
-
-# Вихідні дані EC2
-output "ec2_public_ip" {
-  description = "Public IP address of the EC2 instance"
-  value       = module.ec2.ec2_public_ip
-}
-
-output "ec2_private_ip" {
-  description = "Private IP address of the EC2 instance"
-  value       = module.ec2.ec2_private_ip
-}
-

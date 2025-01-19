@@ -1,3 +1,5 @@
+# # modules/vpc/variables.tf
+
 variable "region" {
   description = "AWS region for VPC"
   type        = string

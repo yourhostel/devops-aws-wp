@@ -18,7 +18,7 @@ aws ec2 describe-subnets --query "Subnets[*].{ID:SubnetId,VPC:VpcId,CIDR:CidrBlo
 - Зона доступності (Availability Zone), у якій знаходиться підмережа.
 
 ```bash
-aws ec2 describe-vpcs --query "Vpcs[*].{ID:VpcId,State:State,Name:Tags[?Key=='Name']|[0].Value}" --output table
+`aws ec2 describe-vpcs --query "Vpcs[*].{ID:VpcId,State:State,Name:Tags[?Key=='Name']|[0].Value}" --output table`
 ```
 Повертає інформацію про всі VPC у обліковці AWS. Для кожної VPC показано:
 - Ідентифікатор VPC (ID).

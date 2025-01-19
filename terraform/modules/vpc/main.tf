@@ -1,6 +1,4 @@
-provider "aws" {
-  region = var.region
-}
+# modules/vpc/main.tf
 
 # VPC
 resource "aws_vpc" "main" {

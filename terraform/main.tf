@@ -47,6 +47,13 @@ module "elasticache_redis" {
   tags                = var.tags
 }
 
+# Підключення модуля IAM
+module "iam" {
+  source       = "./modules/iam"
+  project_name = var.project_name
+  tags         = var.tags
+}
+
 # Вихідні дані для VPC
 output "vpc_info" {
   description = "Details about the created VPC"
@@ -88,4 +95,24 @@ output "rds_info" {
     instance_id         = module.rds_mysql.rds_instance_id
     tags                = module.rds_mysql.rds_tags
   }
+}
+
+output "rds_credentials" {
+  description = "RDS credentials"
+  value = {
+    db_name     = var.db_name
+    db_user     = var.db_user
+    db_password = var.db_password
+  }
+  sensitive = true
+}
+
+# Вихідні дані для IAM
+output "iam_info" {
+  description = "Details about the IAM users"
+  value = {
+    readonly_user_credentials = module.iam.readonly_user_credentials
+    wordpress_admin_credentials = module.iam.wordpress_admin_credentials
+  }
+  sensitive = true
 }

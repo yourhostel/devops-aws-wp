@@ -37,7 +37,7 @@ python3 inventory/dynamic.py
                 "rds_port": 3306,
                 "db_name": "wordpress_db",
                 "db_user": "admin",
-                "db_password": "securepassword123"
+                "db_password": "password"
             }
         }
     }

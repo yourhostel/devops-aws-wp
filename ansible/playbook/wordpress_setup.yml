@@ -1,0 +1,165 @@
+# ansible/playbook/wordpress_setup.yml
+---
+- name: Налаштування WordPress на EC2 інстансі
+  hosts: wordpress_server
+  become: true
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /usr/bin/python3.8
+    wordpress_download_url: "https://wordpress.org/latest.tar.gz"
+    wordpress_root: "/var/www/html"
+    wp_config_file: "{{ wordpress_root }}/wp-config.php"
+
+  tasks:
+    - name: Встановлення Python 3.8
+      raw: |
+        amazon-linux-extras enable python3.8
+        yum install -y python3.8
+      become: true
+
+    - name: Оновлення pip та встановлення необхідних пакетів
+      raw: |
+        /usr/bin/python3.8 -m ensurepip
+        /usr/bin/python3.8 -m pip install --upgrade pip
+      become: true
+
+    - name: Оновлення системних пакетів
+      shell: |
+        yum update -y
+      become: true
+
+    # Перевірка підключення до MySQL RDS
+    - name: Встановлення MySQL клієнта
+      shell: |
+        yum install -y mysql
+
+    - name: Перевірка підключення до бази даних
+      shell: |
+        mysql -u {{ db_user }} -p{{ db_password }} -h {{ rds_endpoint }} -e "SHOW DATABASES;"
+      register: mysql_check
+      ignore_errors: yes
+      become: true
+
+    - name: Вивід результатів перевірки бази даних
+      debug:
+        var: mysql_check.stdout
+
+    # Перевірка підключення до ElastiCache-Redis
+    - name: Увімкнення репозиторію Redis
+      shell: |
+        amazon-linux-extras enable redis6
+      become: true
+
+    - name: Встановлення Redis CLI
+      shell: |
+        yum install -y redis
+      become: true
+
+    - name: Перевірка підключення до Redis
+      shell: |
+        redis-cli -h {{ redis_endpoint }} -p {{ redis_port }} PING
+      register: redis_check
+      ignore_errors: yes
+      become: true
+
+    - name: Вивід результатів перевірки Redis
+      debug:
+        var: redis_check.stdout
+
+    # Останній стабільний реліз WordPress вимагає як мінімум PHP 7.2.24.
+    # Ставимо PHP 8.0
+    - name: Увімкнення репозиторію PHP 8.0
+      shell: |
+        amazon-linux-extras enable php8.0
+      become: true
+
+    - name: Встановлення PHP 8.0 і необхідних модулів
+      shell: |
+        yum install -y php php-mysqlnd php-fpm php-json php-gd php-mbstring php-xml php-cli php-soap
+      become: true
+
+    - name: Перезавантаження Apache для застосування нової версії PHP
+      service:
+        name: httpd
+        state: restarted
+      become: true
+
+    - name: Завантаження WordPress
+      get_url:
+        url: "{{ wordpress_download_url }}"
+        dest: "/tmp/wordpress.tar.gz"
+
+    - name: Розпакування WordPress
+      unarchive:
+        src: "/tmp/wordpress.tar.gz"
+        dest: "{{ wordpress_root }}"
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+
+    - name: Встановлення прав доступу для каталогу WordPress
+      file:
+        path: "{{ wordpress_root }}"
+        state: directory
+        owner: apache
+        group: apache
+        mode: '0755'
+        recurse: true
+
+    - name: Налаштування wp-config.php
+      copy:
+        dest: "{{ wp_config_file }}"
+        content: |
+          <?php
+          define('DB_NAME', '{{ db_name }}'); // Назва бази даних
+          define('DB_USER', '{{ db_user }}'); // Користувач бази даних
+          define('DB_PASSWORD', '{{ db_password }}'); // Пароль до бази даних
+          define('DB_HOST', '{{ rds_endpoint }}'); // Хост бази даних
+          define('DB_CHARSET', 'utf8'); // Набір символів бази даних
+          define('DB_COLLATE', ''); // Сортування бази даних
+
+          define('WP_REDIS_HOST', '{{ redis_endpoint }}'); // Хост Redis
+          define('WP_REDIS_PORT', {{ redis_port }}); // Порт Redis
+
+          $table_prefix = 'wp_'; // Префікс таблиць бази даних
+          define('WP_DEBUG', false); // Режим налагодження
+
+          if ( !defined('ABSPATH') )
+              define('ABSPATH', dirname(__FILE__) . '/');
+
+          require_once(ABSPATH . 'wp-settings.php');
+
+    - name: Видалення тестової сторінки Apache
+      shell: |
+        rm -f /etc/httpd/conf.d/welcome.conf
+      become: true
+
+    - name: Перезавантаження Apache
+      service:
+        name: httpd
+        state: restarted
+      become: true
+
+# Якщо фільтрації на рівні мережі замало можна використовувати Firewalld.
+# Працює поверх iptables (або його нової версії - nftables). Перезатирає існуючі низькорівневі правила.
+
+
+#    - name: Встановлення Firewalld
+#      shell: |
+#        yum install -y firewalld
+#      become: true
+#
+#    - name: Запуск та увімкнення Firewalld
+#      shell: |
+#        systemctl start firewalld && systemctl enable firewalld
+#      become: true
+#
+#    - name: Відкриття HTTP у Firewalld
+#      shell: |
+#        firewall-cmd --permanent --add-service=http # фактично генерує: iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+#      become: true
+#
+#    - name: Перезавантаження Firewalld
+#      shell: |
+#        firewall-cmd --reload
+#      become: true

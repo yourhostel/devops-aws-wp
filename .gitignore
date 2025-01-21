@@ -84,3 +84,10 @@ Thumbs.db
 *.lock
 *.old
 
+# Ansible-related files
+*.retry                   # Retry files
+!ansible/inventory/hosts.yml
+ansible/inventory/*.log
+ansible/.vault_pass.txt
+ansible/inventory/dynamic.pyc
+
